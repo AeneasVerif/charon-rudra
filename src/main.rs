@@ -1,5 +1,7 @@
+mod context;
 mod logger;
 mod options;
+mod rudra;
 
 use anyhow::{bail, Context, Result};
 use charon_lib::ast::{AttrInfo, Attribute, TranslatedCrate};
@@ -42,4 +44,6 @@ fn main() {
             .expect("Could not deserialize the llbc file")
             .translated
     };
+
+    let ctx = context::Ctx::new(crate_data);
 }
