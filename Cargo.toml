@@ -1,0 +1,14 @@
+[package]
+name = "charon-rudra"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+charon = { git = "https://github.com/AeneasVerif/charon", branch = "main", optional = true, default-features = false }
+serde = { version = "1.0.152", features = ["derive"] }
+env_logger = { version = "0.11", features = ["color"] }
+clap = { version = "4.0", features = ["derive", "env"] }
+tracing-subscriber = { version = "0.3", features = [ "env-filter", "std", "fmt" ] }
+tracing-tree = { git = "https://github.com/Nadrieril/tracing-tree", features = [ "time" ] } # Fork with improved formating and timing info.
+# tracing-tree = { path = "../../tracing-tree", features = [ "time" ] }
+tracing = { version = "0.1", features = [ "max_level_trace" ] }
