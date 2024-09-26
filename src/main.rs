@@ -3,30 +3,25 @@ mod logger;
 mod options;
 mod rudra;
 
-use anyhow::{bail, Context, Result};
-use charon_lib::ast::{AttrInfo, Attribute, TranslatedCrate};
+use anyhow::Context;
+use charon_lib::ast::TranslatedCrate;
 use charon_lib::export::CrateData;
-use charon_lib::meta::ItemMeta;
-use charon_lib::names::{Name, PathElem};
-use charon_lib::types::{
-    BuiltinTy, Field, LiteralTy, Ty, TypeDecl, TypeDeclId, TypeDeclKind, TypeId,
-};
 use clap::Parser;
 use options::*;
-use std::collections::{HashMap, HashSet};
-use std::fmt::Write;
-use std::fs;
+//use std::collections::{HashMap, HashSet};
+//use std::fmt::Write;
+//use std::fs;
 use std::fs::File;
 use std::io::BufReader;
-use std::path::PathBuf;
-use std::process::Command;
+//use std::path::PathBuf;
+//use std::process::Command;
 
 fn main() {
     // Initialize the logger
     logger::initialize_logger();
 
     // Parse the command-line
-    let mut options = CliOpts::parse();
+    let options = CliOpts::parse();
 
     // Deserialize the .ullbc file
     let crate_data: TranslatedCrate = {
@@ -45,5 +40,5 @@ fn main() {
             .translated
     };
 
-    let ctx = context::Ctx::new(crate_data);
+    let _ctx = context::Ctx::new(crate_data);
 }

@@ -4,19 +4,18 @@ use rustc_middle::ty::{Instance, ParamEnv, TyKind};
 use rustc_span::{Span, DUMMY_SP};*/
 
 use snafu::{Backtrace, Snafu};
-/*use termcolor::Color;
+/*use termcolor::Color;*/
 
-use crate::graph::GraphTaint;
-use crate::prelude::*;
-use crate::{
-    analysis::{AnalysisKind, IntoReportLevel},
+//use crate::prelude::*;
+use crate::rudra::graph::GraphTaint;
+use crate::rudra::{
+    analysis::{AnalysisError, AnalysisErrorKind, AnalysisKind, IntoReportLevel},
     graph::TaintAnalyzer,
-    ir,
     paths::{self, *},
     report::{Report, ReportLevel},
-    utils,
-    visitor::ContainsUnsafe,
-};*/
+    //utils,
+    //visitor::ContainsUnsafe,
+};
 use bitflags::bitflags;
 
 #[derive(Debug, Snafu)]
@@ -26,7 +25,6 @@ pub enum UnsafeDataflowError {
     InvalidSpan { backtrace: Backtrace },
 }
 
-/*
 impl AnalysisError for UnsafeDataflowError {
     fn kind(&self) -> AnalysisErrorKind {
         use UnsafeDataflowError::*;
@@ -38,6 +36,7 @@ impl AnalysisError for UnsafeDataflowError {
     }
 }
 
+/*
 pub struct UnsafeDataflowChecker<'tcx> {
     rcx: RudraCtxt<'tcx>,
 }
@@ -334,7 +333,7 @@ mod inner {
 // Unsafe Dataflow BypassKind.
 // Used to associate each Unsafe-Dataflow bug report with its cause.
 bitflags! {
-    #[derive(Default)]
+    #[derive(Default, Debug, Clone, Copy)]
     pub struct BehaviorFlag: u16 {
         const READ_FLOW = 0b00000001;
         const COPY_FLOW = 0b00000010;

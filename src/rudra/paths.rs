@@ -3,7 +3,7 @@ use charon_lib::ast::names::Name;
 use charon_lib::name_matcher::Pattern;
 use maplit::hashmap;
 use once_cell::sync::Lazy;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::rudra::analysis::UnsafeDataflowBehaviorFlag;
 

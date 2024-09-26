@@ -11,11 +11,12 @@ clap = { version = "4.0", features = ["derive", "env"] }
 env_logger = { version = "0.11", features = ["color"] }
 maplit = { version = "1.0.2" }
 once_cell = { version = "1.19.0" }
+parking_lot = "0.12.3"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = { version = "1.0.91", features = ["unbounded_depth"] }
 serde_stacker = "0.1.11"
 snafu= "0.8.5"
+toml = "0.8.19"
 tracing-subscriber = { version = "0.3", features = [ "env-filter", "std", "fmt" ] }
 tracing-tree = { git = "https://github.com/Nadrieril/tracing-tree", features = [ "time" ] } # Fork with improved formating and timing info.
-# tracing-tree = { path = "../../tracing-tree", features = [ "time" ] }
 tracing = { version = "0.1", features = [ "max_level_trace" ] }

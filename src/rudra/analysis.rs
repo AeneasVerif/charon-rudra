@@ -1,17 +1,19 @@
-//mod send_sync_variance;
+mod send_sync_variance;
 mod unsafe_dataflow;
 //mod unsafe_destructor;
 
-//use snafu::{Error, ErrorCompat};
+use snafu::{Error, ErrorCompat};
+use tracing::{debug, error, info};
 
-//use crate::report::ReportLevel;
+use crate::logger::*;
+use crate::rudra::report::ReportLevel;
 
-//pub use send_sync_variance::{BehaviorFlag as SendSyncBehaviorFlag, SendSyncVarianceChecker};
+pub use send_sync_variance::BehaviorFlag as SendSyncBehaviorFlag;
+//pub use send_sync_variance::{SendSyncVarianceChecker};
 pub use unsafe_dataflow::BehaviorFlag as UnsafeDataflowBehaviorFlag;
 //pub use unsafe_dataflow::{UnsafeDataflowChecker};
 //pub use unsafe_destructor::UnsafeDestructorChecker;
 
-/*
 pub type AnalysisResult<'tcx, T> = Result<T, Box<dyn AnalysisError + 'tcx>>;
 
 use std::borrow::Cow;
@@ -136,4 +138,3 @@ impl Into<Cow<'static, str>> for AnalysisKind {
         }
     }
 }
-*/

@@ -1,6 +1,6 @@
 use std::{cmp::min, collections::VecDeque};
 
-use charon_lib::ullbc_ast::{BlockId, BodyContents, ExprBody, RawStatement, Statement, Terminator};
+use charon_lib::ullbc_ast::{BlockId, ExprBody};
 
 pub trait Graph {
     fn len(&self) -> usize;
