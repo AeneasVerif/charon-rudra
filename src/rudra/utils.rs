@@ -10,7 +10,7 @@ use charon_lib::ast::TranslatedCrate;
 use termcolor::{Buffer, Color, ColorSpec, WriteColor};
 use tracing::{error, info, warn};
 
-//use crate::compile_time_sysroot;
+use crate::rudra::lib::compile_time_sysroot;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 struct ColorEventId(usize);
@@ -253,8 +253,7 @@ pub fn print_span(crate_data: &TranslatedCrate, span: &Span) {
 }
 
 pub fn print_span_to_file(crate_data: &TranslatedCrate, span: &Span, output_name: &str) {
-    //let sysroot = compile_time_sysroot().expect("Failed to fetch sysroot");
-    let sysroot = "";
+    let sysroot = compile_time_sysroot().expect("Failed to fetch sysroot");
     let filename = format!("{}/logs/{}", sysroot, output_name);
     let snippet = span_to_snippet(crate_data, span).unwrap().join("\n");
     let content = format!("{:?}\n{}\n", span, snippet);

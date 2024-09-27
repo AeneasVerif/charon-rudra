@@ -11,7 +11,7 @@ use crate::rudra::report::ReportLevel;
 pub use send_sync_variance::BehaviorFlag as SendSyncBehaviorFlag;
 //pub use send_sync_variance::{SendSyncVarianceChecker};
 pub use unsafe_dataflow::BehaviorFlag as UnsafeDataflowBehaviorFlag;
-//pub use unsafe_dataflow::{UnsafeDataflowChecker};
+pub use unsafe_dataflow::UnsafeDataflowChecker;
 //pub use unsafe_destructor::UnsafeDestructorChecker;
 
 pub type AnalysisResult<'tcx, T> = Result<T, Box<dyn AnalysisError + 'tcx>>;

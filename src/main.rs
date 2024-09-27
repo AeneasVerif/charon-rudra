@@ -1,3 +1,9 @@
+#![feature(backtrace)]
+#![feature(box_patterns)]
+#![feature(rustc_private)]
+#![feature(try_blocks)]
+#![feature(never_type)]
+
 mod logger;
 mod options;
 mod rudra;
@@ -17,7 +23,8 @@ use std::io::BufReader;
 
 fn main() {
     // Initialize the logger
-    logger::initialize_logger();
+    //logger::initialize_logger();
+    let _ = rudra::log::setup_logging(rudra::log::Verbosity::Normal).unwrap();
 
     // Parse the command-line
     let options = CliOpts::parse();

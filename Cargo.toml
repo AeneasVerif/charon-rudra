@@ -7,9 +7,12 @@ edition = "2021"
 anyhow = "1.0.81"
 bitflags = "2.6.0"
 charon = { git = "https://github.com/AeneasVerif/charon", branch = "main", default-features = false }
+chrono = "0.4.38"
 clap = { version = "4.0", features = ["derive", "env"] }
-env_logger = { version = "0.11", features = ["color"] }
+#env_logger = { version = "0.11", features = ["color"] }
+fern = "0.6.2"
 if_chain = "1.0.2"
+log = "0.4.22"
 maplit = { version = "1.0.2" }
 once_cell = { version = "1.19.0" }
 parking_lot = "0.12.3"
