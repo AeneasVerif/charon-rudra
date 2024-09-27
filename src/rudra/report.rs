@@ -12,7 +12,9 @@ use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
 use serde::Serialize;
 
-//use crate::utils;
+use crate::rudra::utils;
+
+use charon_lib::ast::TranslatedCrate;
 
 static REPORT_LOGGER: OnceCell<Box<dyn ReportLogger>> = OnceCell::new();
 
@@ -75,8 +77,8 @@ pub struct Report {
     source: String,
 }
 
-/*impl Report {
-    pub fn with_hir_id<T, U>(
+impl Report {
+    /*pub fn with_hir_id<T, U>(
         tcx: TyCtxt<'_>,
         level: ReportLevel,
         analyzer: T,
@@ -109,10 +111,9 @@ pub struct Report {
             location,
             source,
         }
-    }
+    }*/
 
     pub fn with_color_span<T, U>(
-        tcx: TyCtxt<'_>,
         level: ReportLevel,
         analyzer: T,
         description: U,
@@ -122,8 +123,7 @@ pub struct Report {
         T: Into<Cow<'static, str>>,
         U: Into<Cow<'static, str>>,
     {
-        let source_map = tcx.sess.source_map();
-        let location = source_map.span_to_diagnostic_string(color_span.main_span());
+        let location = format!("{:?}", &color_span.main_span.span).to_string();
 
         Report {
             level,
@@ -133,7 +133,7 @@ pub struct Report {
             source: color_span.to_colored_string(),
         }
     }
-}*/
+}
 
 pub trait ReportLogger: Sync + Send {
     fn log(&self, report: Report);

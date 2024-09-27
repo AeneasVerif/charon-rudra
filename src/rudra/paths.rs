@@ -1,4 +1,4 @@
-use crate::context::Ctx;
+use crate::rudra::context::CtxOwner;
 use charon_lib::ast::names::Name;
 use charon_lib::name_matcher::Pattern;
 use maplit::hashmap;
@@ -19,31 +19,31 @@ to
 */
 // Strong bypasses
 pub const PTR_READ: [&str; 3] = ["core", "ptr", "read"];
-pub const PTR_DIRECT_READ: [&str; 5] = ["core", "ptr", "const_ptr", "<_>", "read"];
+pub const PTR_DIRECT_READ: [&str; 5] = ["core", "ptr", "const_ptr", "{_}", "read"];
 //pub const PTR_DIRECT_READ: [&str; 5] = ["core", "ptr", "const_ptr", "<impl *const T>", "read"];
 
 pub const INTRINSICS_COPY: [&str; 3] = ["core", "intrinsics", "copy"];
 pub const INTRINSICS_COPY_NONOVERLAPPING: [&str; 3] = ["core", "intrinsics", "copy_nonoverlapping"];
 
-pub const VEC_SET_LEN: [&str; 4] = ["alloc", "vec", "<Vec<_>>", "set_len"];
-pub const VEC_FROM_RAW_PARTS: [&str; 4] = ["alloc", "vec", "<Vec<_>>", "from_raw_parts"];
+pub const VEC_SET_LEN: [&str; 4] = ["alloc", "vec", "{Vec<_>}", "set_len"];
+pub const VEC_FROM_RAW_PARTS: [&str; 4] = ["alloc", "vec", "{Vec<_>}", "from_raw_parts"];
 
 // Weak bypasses
 pub const TRANSMUTE: [&str; 4] = ["core", "intrinsics", "", "transmute"];
 
 pub const PTR_WRITE: [&str; 3] = ["core", "ptr", "write"];
 //pub const PTR_DIRECT_WRITE: [&str; 5] = ["core", "ptr", "mut_ptr", "<impl *mut T>", "write"];
-pub const PTR_DIRECT_WRITE: [&str; 5] = ["core", "ptr", "mut_ptr", "<_>", "write"];
+pub const PTR_DIRECT_WRITE: [&str; 5] = ["core", "ptr", "mut_ptr", "{_}", "write"];
 
 //pub const PTR_AS_REF: [&str; 5] = ["core", "ptr", "const_ptr", "<impl *const T>", "as_ref"];
 //pub const PTR_AS_MUT: [&str; 5] = ["core", "ptr", "mut_ptr", "<impl *mut T>", "as_mut"];
-pub const PTR_AS_REF: [&str; 5] = ["core", "ptr", "const_ptr", "<_>", "as_ref"];
-pub const PTR_AS_MUT: [&str; 5] = ["core", "ptr", "mut_ptr", "<_>", "as_mut"];
-pub const NON_NULL_AS_REF: [&str; 5] = ["core", "ptr", "non_nul", "<NonNull<T>>", "as_ref"];
-pub const NON_NULL_AS_MUT: [&str; 5] = ["core", "ptr", "non_nul", "<NonNull<T>>", "as_mut"];
+pub const PTR_AS_REF: [&str; 5] = ["core", "ptr", "const_ptr", "{_}", "as_ref"];
+pub const PTR_AS_MUT: [&str; 5] = ["core", "ptr", "mut_ptr", "{_}", "as_mut"];
+pub const NON_NULL_AS_REF: [&str; 5] = ["core", "ptr", "non_nul", "{NonNull<T>}", "as_ref"];
+pub const NON_NULL_AS_MUT: [&str; 5] = ["core", "ptr", "non_nul", "{NonNull<T>}", "as_mut"];
 
-pub const SLICE_GET_UNCHECKED: [&str; 4] = ["core", "slice", "<[T]>", "get_unchecked"];
-pub const SLICE_GET_UNCHECKED_MUT: [&str; 4] = ["core", "slice", "<[T]>", "get_unchecked_mut"];
+pub const SLICE_GET_UNCHECKED: [&str; 4] = ["core", "slice", "{[T]}", "get_unchecked"];
+pub const SLICE_GET_UNCHECKED_MUT: [&str; 4] = ["core", "slice", "{[T]}", "get_unchecked_mut"];
 
 pub const PTR_SLICE_FROM_RAW_PARTS: [&str; 3] = ["core", "ptr", "slice_from_raw_parts"];
 pub const PTR_SLICE_FROM_RAW_PARTS_MUT: [&str; 3] = ["core", "ptr", "slice_from_raw_parts_mut"];
@@ -52,14 +52,14 @@ pub const SLICE_FROM_RAW_PARTS_MUT: [&str; 3] = ["core", "slice", "from_raw_part
 
 // Generic function call
 pub const PTR_DROP_IN_PLACE: [&str; 3] = ["core", "ptr", "drop_in_place"];
-pub const PTR_DIRECT_DROP_IN_PLACE: [&str; 5] = ["core", "ptr", "mut_ptr", "<_>", "drop_in_place"];
+pub const PTR_DIRECT_DROP_IN_PLACE: [&str; 5] = ["core", "ptr", "mut_ptr", "{_}", "drop_in_place"];
 //    ["core", "ptr", "mut_ptr", "<impl *mut T>", "drop_in_place"];
 
 pub struct PathSet {
     set: Vec<(String, Pattern)>,
 }
 
-fn slice_to_string(a: &[&str]) -> String {
+pub fn slice_to_string(a: &[&str]) -> String {
     a.iter()
         .map(|s| s.to_string())
         .collect::<Vec<_>>()
@@ -78,11 +78,11 @@ impl PathSet {
         PathSet { set }
     }
 
-    pub fn contains(&self, ctx: &Ctx, target: &Name) -> bool {
+    pub fn contains<'a>(&'a self, ctx: &CtxOwner, target: &Name) -> Option<&'a String> {
         self.set
             .iter()
             .find(|p| p.1.matches(&ctx.crate_data, target))
-            .is_some()
+            .map(|p| &p.0)
     }
 }
 

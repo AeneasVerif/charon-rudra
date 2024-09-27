@@ -1,19 +1,20 @@
 use std::{cmp::min, collections::VecDeque};
 
-use charon_lib::ullbc_ast::{BlockId, ExprBody};
+use charon_lib::ids::Vector;
+use charon_lib::ullbc_ast::{BlockData, BlockId};
 
 pub trait Graph {
     fn len(&self) -> usize;
     fn next(&self, id: usize) -> Vec<usize>;
 }
 
-impl Graph for ExprBody {
+impl Graph for Vector<BlockId, BlockData> {
     fn len(&self) -> usize {
-        self.body.len()
+        self.len()
     }
 
     fn next(&self, id: usize) -> Vec<usize> {
-        self.body[BlockId::from_usize(id)]
+        self[BlockId::from_usize(id)]
             .targets()
             .into_iter()
             .map(|id| id.index())

@@ -3,20 +3,36 @@ use rustc_middle::mir::Operand;
 use rustc_middle::ty::{Instance, ParamEnv, TyKind};
 use rustc_span::{Span, DUMMY_SP};*/
 
+use crate::rudra::context::{CtxOwner, RudraCtxt};
 use snafu::{Backtrace, Snafu};
-/*use termcolor::Color;*/
+use termcolor::Color;
 
 //use crate::prelude::*;
 use crate::rudra::graph::GraphTaint;
+use crate::rudra::report::rudra_report;
 use crate::rudra::{
     analysis::{AnalysisError, AnalysisErrorKind, AnalysisKind, IntoReportLevel},
     graph::TaintAnalyzer,
     paths::{self, *},
     report::{Report, ReportLevel},
-    //utils,
+    utils,
     //visitor::ContainsUnsafe,
 };
 use bitflags::bitflags;
+use if_chain::if_chain;
+
+use crate::rudra::macros::unwrap_or;
+use charon_lib::ast::meta::Span;
+use charon_lib::formatter::{Formatter, IntoFormatter};
+use charon_lib::gast::{Body, BodyId, FunDeclId};
+use charon_lib::ids::Vector;
+use charon_lib::name_matcher::Pattern;
+use charon_lib::types::{GenericArgs, Ty};
+use charon_lib::ullbc_ast::{
+    BodyContents, Call, FnOperand, FnPtr, FunDecl, FunId, FunIdOrTraitMethodRef, Literal, Operand,
+    RawConstantExpr, RawStatement, ScalarValue, TraitRefKind,
+};
+use tracing::{error, info, warn};
 
 #[derive(Debug, Snafu)]
 pub enum UnsafeDataflowError {
@@ -36,7 +52,7 @@ impl AnalysisError for UnsafeDataflowError {
     }
 }
 
-/*
+#[derive(Clone, Copy)]
 pub struct UnsafeDataflowChecker<'tcx> {
     rcx: RudraCtxt<'tcx>,
 }
@@ -47,20 +63,20 @@ impl<'tcx> UnsafeDataflowChecker<'tcx> {
     }
 
     pub fn analyze(self) {
-        let tcx = self.rcx.tcx();
-        let hir_map = tcx.hir();
-
-        // Iterates all (type, related function) pairs
-        for (_ty_hir_id, (body_id, related_item_span)) in self.rcx.types_with_related_items() {
-            if let Some(status) = inner::UnsafeDataflowBodyAnalyzer::analyze_body(self.rcx, body_id)
-            {
+        // Iterate over all functions
+        for decl in self.rcx.crate_data.fun_decls.iter() {
+            if let Some(status) = inner::UnsafeDataflowBodyAnalyzer::analyze_body(self.rcx, decl) {
                 let behavior_flag = status.behavior_flag();
                 if !behavior_flag.is_empty()
                     && behavior_flag.report_level() >= self.rcx.report_level()
                 {
-                    let mut color_span = unwrap_or!(
-                        utils::ColorSpan::new(tcx, related_item_span).context(InvalidSpan) => continue
-                    );
+                    let mut color_span = if let Some(span) =
+                        utils::ColorSpan::new(&self.rcx.crate_data, decl.item_meta.span)
+                    {
+                        span
+                    } else {
+                        continue;
+                    };
 
                     for &span in status.strong_bypass_spans() {
                         color_span.add_sub_span(Color::Red, span);
@@ -75,12 +91,11 @@ impl<'tcx> UnsafeDataflowChecker<'tcx> {
                     }
 
                     rudra_report(Report::with_color_span(
-                        tcx,
                         behavior_flag.report_level(),
                         AnalysisKind::UnsafeDataflow(behavior_flag),
                         format!(
                             "Potential unsafe dataflow issue in `{}`",
-                            tcx.def_path_str(hir_map.body_owner_def_id(body_id).to_def_id())
+                            self.rcx.crate_data.into_fmt().format_object(decl.def_id)
                         ),
                         &color_span,
                     ))
@@ -121,133 +136,182 @@ mod inner {
 
     pub struct UnsafeDataflowBodyAnalyzer<'a, 'tcx> {
         rcx: RudraCtxt<'tcx>,
-        body: &'a ir::Body<'tcx>,
-        param_env: ParamEnv<'tcx>,
+        body: &'a BodyContents,
         status: UnsafeDataflowStatus,
+        ptr_read_set: PathSet,
+        ptr_write_set: PathSet,
+        vec_set_len: Pattern,
     }
 
     impl<'a, 'tcx> UnsafeDataflowBodyAnalyzer<'a, 'tcx> {
-        fn new(rcx: RudraCtxt<'tcx>, param_env: ParamEnv<'tcx>, body: &'a ir::Body<'tcx>) -> Self {
+        fn new(rcx: RudraCtxt<'tcx>, body: &'a BodyContents) -> Self {
             UnsafeDataflowBodyAnalyzer {
                 rcx,
                 body,
-                param_env,
                 status: Default::default(),
+                ptr_read_set: PathSet::new(&[&PTR_READ[..], &PTR_DIRECT_READ[..]]),
+                ptr_write_set: PathSet::new(&[&PTR_WRITE[..], &PTR_DIRECT_WRITE[..]]),
+                vec_set_len: Pattern::parse(&crate::rudra::paths::slice_to_string(&VEC_SET_LEN))
+                    .unwrap(),
             }
         }
 
-        pub fn analyze_body(rcx: RudraCtxt<'tcx>, body_id: BodyId) -> Option<UnsafeDataflowStatus> {
-            let hir_map = rcx.tcx().hir();
-            let body_did = hir_map.body_owner_def_id(body_id).to_def_id();
-
-            if rcx.tcx().ext().match_def_path(
-                body_did,
-                &["rudra_paths_discovery", "PathsDiscovery", "discover"],
-            ) {
-                // Special case for paths discovery
-                trace_calls_in_body(rcx, body_did);
-                None
-            } else if ContainsUnsafe::contains_unsafe(rcx.tcx(), body_id) {
-                match rcx.translate_body(body_did).as_ref() {
-                    Err(e) => {
-                        // MIR is not available for def - log it and continue
-                        e.log();
-                        None
-                    }
-                    Ok(body) => {
-                        let param_env = rcx.tcx().param_env(body_did);
-                        let body_analyzer = UnsafeDataflowBodyAnalyzer::new(rcx, param_env, body);
-                        Some(body_analyzer.analyze())
-                    }
-                }
+        pub fn analyze_body(rcx: RudraCtxt<'tcx>, decl: &FunDecl) -> Option<UnsafeDataflowStatus> {
+            let path_discovery_set = PathSet::new(&[
+                &["rudra_paths_discovery"],
+                &["PathsDiscovery"],
+                &["discover"],
+            ]);
+            let body_id = if let Ok(id) = decl.body {
+                id
             } else {
-                // We don't perform interprocedural analysis,
-                // thus safe functions are considered safe
-                Some(Default::default())
+                return None;
+            };
+            let body = if let Some(body) = rcx.crate_data.bodies.get(body_id) {
+                body
+            } else {
+                return None;
+            };
+
+            if path_discovery_set
+                .contains(rcx, &decl.item_meta.name)
+                .is_some()
+            {
+                // Special case for paths discovery
+                trace_calls_in_body(rcx, body);
+                None
             }
+            // We don't check if there is unsafe code
+            else
+            /*if ContainsUnsafe::contains_unsafe(rcx.tcx(), body_id)*/
+            {
+                /*match rcx.translate_body(body_did).as_ref() {
+                        Err(e) => {
+                            // MIR is not available for def - log it and continue
+                            e.log();
+                            None
+                        }
+                        Ok(body) => {
+                            let body_analyzer = UnsafeDataflowBodyAnalyzer::new(rcx, body);
+                            Some(body_analyzer.analyze())
+                        }
+                }*/
+                let body_analyzer =
+                    UnsafeDataflowBodyAnalyzer::new(rcx, &body.as_unstructured().unwrap().body);
+                Some(body_analyzer.analyze())
+            } /*else {
+                  // We don't perform interprocedural analysis,
+                  // thus safe functions are considered safe
+                  Some(Default::default())
+              }*/
         }
 
         fn analyze(mut self) -> UnsafeDataflowStatus {
             let mut taint_analyzer = TaintAnalyzer::new(self.body);
 
-            for (id, terminator) in self.body.terminators().enumerate() {
-                match terminator.kind {
-                    ir::TerminatorKind::StaticCall {
-                        callee_did,
-                        callee_substs,
-                        ref args,
-                        ..
-                    } => {
-                        let tcx = self.rcx.tcx();
-                        let ext = tcx.ext();
-                        // Check for lifetime bypass
-                        let symbol_vec = ext.get_def_path(callee_did);
-                        if paths::STRONG_LIFETIME_BYPASS_LIST.contains(&symbol_vec) {
-                            if self.fn_called_on_copy(
-                                (callee_did, args),
-                                &[&PTR_READ[..], &PTR_DIRECT_READ[..]],
-                            ) {
-                                // read on Copy types is not a lifetime bypass.
-                                continue;
-                            }
-
-                            if ext.match_def_path(callee_did, &VEC_SET_LEN)
-                                && vec_set_len_to_0(self.rcx, callee_did, args)
+            for (id, block) in self.body.iter_indexed() {
+                for st in &block.statements {
+                    match &st.content {
+                        RawStatement::Call(Call {
+                            func:
+                                FnOperand::Regular(FnPtr {
+                                    func: FunIdOrTraitMethodRef::Fun(FunId::Regular(callee_did)),
+                                    generics,
+                                    ..
+                                }),
+                            args,
+                            ..
+                        }) => {
+                            // Check for lifetime bypass
+                            let decl = if let Some(decl) =
+                                self.rcx.crate_data.fun_decls.get(*callee_did)
                             {
-                                // Leaking data is safe (`vec.set_len(0);`)
-                                continue;
-                            }
-
-                            taint_analyzer
-                                .mark_source(id, STRONG_BYPASS_MAP.get(&symbol_vec).unwrap());
-                            self.status
-                                .strong_bypasses
-                                .push(terminator.original.source_info.span);
-                        } else if paths::WEAK_LIFETIME_BYPASS_LIST.contains(&symbol_vec) {
-                            if self.fn_called_on_copy(
-                                (callee_did, args),
-                                &[&PTR_WRITE[..], &PTR_DIRECT_WRITE[..]],
-                            ) {
-                                // writing Copy types is not a lifetime bypass.
-                                continue;
-                            }
-
-                            taint_analyzer
-                                .mark_source(id, WEAK_BYPASS_MAP.get(&symbol_vec).unwrap());
-                            self.status
-                                .weak_bypasses
-                                .push(terminator.original.source_info.span);
-                        } else if paths::GENERIC_FN_LIST.contains(&symbol_vec) {
-                            taint_analyzer.mark_sink(id);
-                            self.status
-                                .unresolvable_generic_functions
-                                .push(terminator.original.source_info.span);
-                        } else {
-                            // Check for unresolvable generic function calls
-                            match Instance::resolve(
-                                self.rcx.tcx(),
-                                self.param_env,
-                                callee_did,
-                                callee_substs,
-                            ) {
-                                Err(_e) => log_err!(ResolveError),
-                                Ok(Some(_)) => {
-                                    // Calls were successfully resolved
+                                decl
+                            } else {
+                                warn!("Could not find {callee_did}");
+                                break;
+                            };
+                            let name = &decl.item_meta.name;
+                            if let Some(pname) =
+                                paths::STRONG_LIFETIME_BYPASS_LIST.contains(&self.rcx, name)
+                            {
+                                if self.fn_called_on_copy(*callee_did, generics, &self.ptr_read_set)
+                                {
+                                    // read on Copy types is not a lifetime bypass.
+                                    continue;
                                 }
-                                Ok(None) => {
-                                    // Call contains unresolvable generic parts
-                                    // Here, we are making a two step approximation:
-                                    // 1. Unresolvable generic code is potentially user-provided
-                                    // 2. User-provided code potentially panics
-                                    taint_analyzer.mark_sink(id);
-                                    self.status
-                                        .unresolvable_generic_functions
-                                        .push(terminator.original.source_info.span);
+
+                                if self.vec_set_len.matches(&self.rcx.crate_data, name)
+                                    && vec_set_len_to_0(args)
+                                {
+                                    // Leaking data is safe (`vec.set_len(0);`)
+                                    continue;
                                 }
+
+                                taint_analyzer
+                                    .mark_source(id.index(), STRONG_BYPASS_MAP.get(pname).unwrap());
+                                self.status.strong_bypasses.push(st.span);
+                            } else if let Some(pname) =
+                                paths::WEAK_LIFETIME_BYPASS_LIST.contains(&self.rcx, name)
+                            {
+                                if self.fn_called_on_copy(
+                                    *callee_did,
+                                    generics,
+                                    &self.ptr_write_set,
+                                ) {
+                                    // writing Copy types is not a lifetime bypass.
+                                    continue;
+                                }
+
+                                taint_analyzer
+                                    .mark_source(id.index(), WEAK_BYPASS_MAP.get(pname).unwrap());
+                                self.status.weak_bypasses.push(st.span);
+                            } else if let Some(_) = paths::GENERIC_FN_LIST.contains(&self.rcx, name)
+                            {
+                                taint_analyzer.mark_sink(id.index());
+                                self.status.unresolvable_generic_functions.push(st.span);
+                            } else {
+                                // Check for unresolvable generic function calls
+                                /*match Instance::resolve(
+                                    self.rcx.tcx(),
+                                    self.param_env,
+                                    callee_did,
+                                    callee_substs,
+                                ) {
+                                    Err(_e) => log_err!(ResolveError),
+                                    Ok(Some(_)) => {
+                                        // Calls were successfully resolved
+                                    }
+                                    Ok(None) => {
+                                        // Call contains unresolvable generic parts
+                                        // Here, we are making a two step approximation:
+                                        // 1. Unresolvable generic code is potentially user-provided
+                                        // 2. User-provided code potentially panics
+                                        taint_analyzer.mark_sink(id.into());
+                                        self.status
+                                            .unresolvable_generic_functions
+                                            .push(terminator.original.source_info.span);
+                                    }
+                                }*/
                             }
                         }
+                        RawStatement::Call(Call {
+                            func:
+                                FnOperand::Regular(FnPtr {
+                                    func: FunIdOrTraitMethodRef::Trait(tref, ..),
+                                    ..
+                                }),
+                            ..
+                        }) if !matches!(tref.kind, TraitRefKind::TraitImpl(..)) => {
+                            // Call contains unresolvable generic parts
+                            // Here, we are making a two step approximation:
+                            // 1. Unresolvable generic code is potentially user-provided
+                            // 2. User-provided code potentially panics
+                            taint_analyzer.mark_sink(id.into());
+                            self.status.unresolvable_generic_functions.push(st.span);
+                        }
+                        _ => (),
                     }
-                    _ => (),
                 }
             }
 
@@ -257,12 +321,19 @@ mod inner {
 
         fn fn_called_on_copy(
             &self,
-            (callee_did, callee_args): (DefId, &Vec<Operand<'tcx>>),
-            paths: &[&[&str]],
+            callee_did: FunDeclId,
+            generics: &GenericArgs,
+            paths: &PathSet,
         ) -> bool {
-            let tcx = self.rcx.tcx();
-            let ext = tcx.ext();
-            for path in paths.iter() {
+            if let Some(decl) = self.rcx.crate_data.fun_decls.get(callee_did) {
+                if paths.contains(&self.rcx, &decl.item_meta.name).is_some() {
+                    // Just check the first type argument
+                    return self.rcx.is_copyable(generics.types.get(0.into()).unwrap());
+                }
+            }
+            false
+
+            /*for path in paths.iter() {
                 if ext.match_def_path(callee_did, path) {
                     for arg in callee_args.iter() {
                         if_chain! {
@@ -281,23 +352,24 @@ mod inner {
                     }
                 }
             }
-            false
+            false*/
         }
     }
 
-    fn trace_calls_in_body<'tcx>(rcx: RudraCtxt<'tcx>, body_def_id: DefId) {
+    fn trace_calls_in_body<'tcx>(rcx: RudraCtxt<'tcx>, body: &Body) {
         warn!("Paths discovery function has been detected");
-        if let Ok(body) = rcx.translate_body(body_def_id).as_ref() {
-            for terminator in body.terminators() {
-                match terminator.kind {
-                    ir::TerminatorKind::StaticCall { callee_did, .. } => {
-                        let ext = rcx.tcx().ext();
-                        println!(
-                            "{}",
-                            ext.get_def_path(callee_did)
-                                .iter()
-                                .fold(String::new(), |a, b| a + " :: " + &*b.as_str())
-                        );
+        for block in &body.as_unstructured().unwrap().body {
+            for st in &block.statements {
+                match &st.content {
+                    RawStatement::Call(Call {
+                        func:
+                            FnOperand::Regular(FnPtr {
+                                func: FunIdOrTraitMethodRef::Fun(FunId::Regular(id)),
+                                ..
+                            }),
+                        ..
+                    }) => {
+                        println!("{}", rcx.crate_data.into_fmt().format_object(*id));
                     }
                     _ => (),
                 }
@@ -306,29 +378,20 @@ mod inner {
     }
 
     // Check if the argument of `Vec::set_len()` is 0_usize.
-    fn vec_set_len_to_0<'tcx>(
-        rcx: RudraCtxt<'tcx>,
-        callee_did: DefId,
-        args: &Vec<Operand<'tcx>>,
-    ) -> bool {
-        let tcx = rcx.tcx();
+    fn vec_set_len_to_0(args: &Vec<Operand>) -> bool {
         for arg in args.iter() {
-            if_chain! {
-                if let Operand::Constant(c) = arg;
-                if let Some(c_val) = c.literal.try_eval_usize(
-                    tcx,
-                    tcx.param_env(callee_did),
-                );
-                if c_val == 0;
-                then {
-                    // Leaking(`vec.set_len(0);`) is safe.
-                    return true;
+            if let Operand::Const(x) = arg {
+                if let RawConstantExpr::Literal(Literal::Scalar(ScalarValue::Usize(x))) = &x.value {
+                    if *x == 0 {
+                        // Leaking(`vec.set_len(0);`) is safe.
+                        return true;
+                    }
                 }
             }
         }
         false
     }
-}*/
+}
 
 // Unsafe Dataflow BypassKind.
 // Used to associate each Unsafe-Dataflow bug report with its cause.
@@ -347,7 +410,6 @@ bitflags! {
     }
 }
 
-/*
 impl IntoReportLevel for BehaviorFlag {
     fn report_level(&self) -> ReportLevel {
         use BehaviorFlag as Flag;
@@ -378,4 +440,3 @@ impl GraphTaint for BehaviorFlag {
         *self |= *taint;
     }
 }
-*/

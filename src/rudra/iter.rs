@@ -3,7 +3,7 @@
 //! more performant, but we are intentionally trying to hide the implementation
 //! detail here.
 
-use crate::context::Ctx;
+use crate::rudra::context::CtxOwner;
 use charon_lib::types::{TraitDeclId, TraitImplId};
 
 /// Given a trait `DefId`, this iterator returns `HirId` of all local impl blocks
@@ -13,7 +13,7 @@ pub struct LocalTraitIter {
 }
 
 impl LocalTraitIter {
-    pub fn new(ctx: &Ctx, trait_def_id: TraitDeclId) -> Self {
+    pub fn new(ctx: &CtxOwner, trait_def_id: TraitDeclId) -> Self {
         // We do something
         let impl_id_vec = ctx
             .trait_impl_map

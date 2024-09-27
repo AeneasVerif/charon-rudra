@@ -1,4 +1,3 @@
-mod context;
 mod logger;
 mod options;
 mod rudra;
@@ -40,5 +39,6 @@ fn main() {
             .translated
     };
 
-    let _ctx = context::Ctx::new(crate_data);
+    let _ctx =
+        crate::rudra::context::CtxOwner::new(crate_data, crate::rudra::report::ReportLevel::Error);
 }
