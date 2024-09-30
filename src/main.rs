@@ -23,8 +23,10 @@ use std::io::BufReader;
 
 fn main() {
     // Initialize the logger
-    //logger::initialize_logger();
-    let _ = rudra::log::setup_logging(rudra::log::Verbosity::Normal).unwrap();
+    rudra::log::setup_logging(rudra::log::Verbosity::Normal).expect("Rudra failed to initialize");
+
+    // Initialize the report logger
+    let _report_logger = rudra::report::init_report_logger(rudra::report::default_report_logger());
 
     // Parse the command-line
     let options = CliOpts::parse();
