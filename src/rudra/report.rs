@@ -123,7 +123,7 @@ impl Report {
         T: Into<Cow<'static, str>>,
         U: Into<Cow<'static, str>>,
     {
-        let location = format!("{:?}", &color_span.main_span.span).to_string();
+        let location = color_span.to_string();
 
         Report {
             level,

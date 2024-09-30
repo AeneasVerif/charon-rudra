@@ -204,6 +204,12 @@ impl<'tcx> ColorSpan<'tcx> {
     }
 }
 
+impl<'tcx> ToString for ColorSpan<'tcx> {
+    fn to_string(&self) -> String {
+        span_to_string(self.crate_data, &self.main_span)
+    }
+}
+
 // TODO: move to Charon
 pub fn span_to_snippet(crate_data: &TranslatedCrate, span: &Span) -> Result<Vec<String>, ()> {
     use std::fs::File;
@@ -252,11 +258,25 @@ pub fn print_span(crate_data: &TranslatedCrate, span: &Span) {
     eprintln!("{:?}\n{}\n", span, snippet);
 }
 
+pub fn span_to_string(crate_data: &TranslatedCrate, span: &Span) -> String {
+    let file = &crate_data.id_to_file[span.span.file_id];
+    use FileName::*;
+    let file = match file {
+        Local(path) | Virtual(path) => path.to_str().unwrap().to_string(),
+        NotReal(name) => name.clone(),
+    };
+    format!(
+        "{}:{}:{}-{}:{}",
+        file, span.span.beg.line, span.span.beg.col, span.span.end.line, span.span.end.col
+    )
+    .to_string()
+}
+
 pub fn print_span_to_file(crate_data: &TranslatedCrate, span: &Span, output_name: &str) {
     let sysroot = compile_time_sysroot().expect("Failed to fetch sysroot");
     let filename = format!("{}/logs/{}", sysroot, output_name);
     let snippet = span_to_snippet(crate_data, span).unwrap().join("\n");
-    let content = format!("{:?}\n{}\n", span, snippet);
+    let content = format!("{}\n{}\n", span_to_string(crate_data, span), snippet);
     std::fs::write(filename, content).expect("Unable to write file");
 }
 
