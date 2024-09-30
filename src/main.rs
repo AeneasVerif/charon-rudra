@@ -33,7 +33,7 @@ fn main() {
     let crate_data: TranslatedCrate = {
         use serde::Deserialize;
         let file = File::open(&options.file)
-            .with_context(|| format!("Failed to read llbc file {}", &options.file))
+            .with_context(|| format!("Failed to read ullbc file {}", &options.file))
             .unwrap();
         let reader = BufReader::new(file);
         let mut deserializer = serde_json::Deserializer::from_reader(reader);
@@ -42,10 +42,10 @@ fn main() {
         // Grow stack space as needed.
         let deserializer = serde_stacker::Deserializer::new(&mut deserializer);
         CrateData::deserialize(deserializer)
-            .expect("Could not deserialize the llbc file")
+            .expect("Could not deserialize the ullbc file")
             .translated
     };
 
-    let _ctx =
-        crate::rudra::context::CtxOwner::new(crate_data, crate::rudra::report::ReportLevel::Error);
+    let config = crate::rudra::lib::RudraConfig::default();
+    crate::rudra::lib::analyze(crate_data, config);
 }

@@ -42,8 +42,10 @@ pub const PTR_AS_MUT: [&str; 5] = ["core", "ptr", "mut_ptr", "{_}", "as_mut"];
 pub const NON_NULL_AS_REF: [&str; 5] = ["core", "ptr", "non_nul", "{NonNull<T>}", "as_ref"];
 pub const NON_NULL_AS_MUT: [&str; 5] = ["core", "ptr", "non_nul", "{NonNull<T>}", "as_mut"];
 
-pub const SLICE_GET_UNCHECKED: [&str; 4] = ["core", "slice", "{[T]}", "get_unchecked"];
-pub const SLICE_GET_UNCHECKED_MUT: [&str; 4] = ["core", "slice", "{[T]}", "get_unchecked_mut"];
+//pub const SLICE_GET_UNCHECKED: [&str; 4] = ["core", "slice", "{[T]}", "get_unchecked"];
+//pub const SLICE_GET_UNCHECKED_MUT: [&str; 4] = ["core", "slice", "{[T]}", "get_unchecked_mut"];
+pub const SLICE_GET_UNCHECKED: [&str; 4] = ["core", "slice", "{_}", "get_unchecked"];
+pub const SLICE_GET_UNCHECKED_MUT: [&str; 4] = ["core", "slice", "{_}", "get_unchecked_mut"];
 
 pub const PTR_SLICE_FROM_RAW_PARTS: [&str; 3] = ["core", "ptr", "slice_from_raw_parts"];
 pub const PTR_SLICE_FROM_RAW_PARTS_MUT: [&str; 3] = ["core", "ptr", "slice_from_raw_parts_mut"];
