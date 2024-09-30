@@ -1,0 +1,4 @@
+- Fix the linking issues:
+  - Cargo.toml: prefer-dynamic dep
+  - Makefile: cp libstd-*
+  - `LD_LIBRARY_PATH`
