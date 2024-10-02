@@ -29,7 +29,8 @@ pub const VEC_SET_LEN: [&str; 4] = ["alloc", "vec", "{Vec<_>}", "set_len"];
 pub const VEC_FROM_RAW_PARTS: [&str; 4] = ["alloc", "vec", "{Vec<_>}", "from_raw_parts"];
 
 // Weak bypasses
-pub const TRANSMUTE: [&str; 4] = ["core", "intrinsics", "", "transmute"];
+//pub const TRANSMUTE: [&str; 4] = ["core", "intrinsics", "", "transmute"];
+pub const TRANSMUTE: [&str; 3] = ["core", "intrinsics", "transmute"];
 
 pub const PTR_WRITE: [&str; 3] = ["core", "ptr", "write"];
 //pub const PTR_DIRECT_WRITE: [&str; 5] = ["core", "ptr", "mut_ptr", "<impl *mut T>", "write"];
