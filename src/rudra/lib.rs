@@ -26,7 +26,8 @@ pub struct RudraConfig {
 impl Default for RudraConfig {
     fn default() -> Self {
         RudraConfig {
-            verbosity: Verbosity::Normal,
+            //verbosity: Verbosity::Normal,
+            verbosity: Verbosity::Trace,
             report_level: ReportLevel::Info,
             unsafe_destructor_enabled: false,
             send_sync_variance_enabled: true,

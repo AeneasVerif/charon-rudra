@@ -208,6 +208,8 @@ mod inner {
 
         fn analyze(mut self) -> UnsafeDataflowStatus {
             let mut taint_analyzer = TaintAnalyzer::new(self.body);
+            let fmt = &self.rcx.crate_data.into_fmt();
+            use charon_lib::pretty::FmtWithCtx;
 
             for (id, block) in self.body.iter_indexed() {
                 for st in &block.statements {
@@ -232,9 +234,14 @@ mod inner {
                                 break;
                             };
                             let name = &decl.item_meta.name;
+                            let name_str = name.fmt_with_ctx(fmt);
+                            log::info!("Analyzing fun call: {name_str}\n");
                             if let Some(pname) =
-                                paths::STRONG_LIFETIME_BYPASS_LIST.contains(&self.rcx, name)
+                                paths::STRONG_LIFETIME_BYPASS_LIST.contains(self.rcx, name)
                             {
+                                log::info!(
+                                    "Found potential strong lifetime bypass: {name_str} (block: {id})"
+                                );
                                 if self.fn_called_on_copy(*callee_did, generics, &self.ptr_read_set)
                                 {
                                     // read on Copy types is not a lifetime bypass.
@@ -247,12 +254,15 @@ mod inner {
                                     // Leaking data is safe (`vec.set_len(0);`)
                                     continue;
                                 }
+                                log::info!(
+                                    "Found strong lifetime bypass: {name_str} (block: {id})"
+                                );
 
                                 taint_analyzer
                                     .mark_source(id.index(), STRONG_BYPASS_MAP.get(pname).unwrap());
                                 self.status.strong_bypasses.push(st.span);
                             } else if let Some(pname) =
-                                paths::WEAK_LIFETIME_BYPASS_LIST.contains(&self.rcx, name)
+                                paths::WEAK_LIFETIME_BYPASS_LIST.contains(self.rcx, name)
                             {
                                 if self.fn_called_on_copy(
                                     *callee_did,
@@ -262,12 +272,15 @@ mod inner {
                                     // writing Copy types is not a lifetime bypass.
                                     continue;
                                 }
+                                log::info!("Found weak lifetime bypass: {name_str} (block: {id})");
 
                                 taint_analyzer
                                     .mark_source(id.index(), WEAK_BYPASS_MAP.get(pname).unwrap());
                                 self.status.weak_bypasses.push(st.span);
-                            } else if let Some(_) = paths::GENERIC_FN_LIST.contains(&self.rcx, name)
-                            {
+                            } else if paths::GENERIC_FN_LIST.contains(self.rcx, name).is_some() {
+                                log::info!(
+                                    "Found unresolvable generic function: {name_str} (block: {id})"
+                                );
                                 taint_analyzer.mark_sink(id.index());
                                 self.status.unresolvable_generic_functions.push(st.span);
                             } else {
@@ -298,7 +311,7 @@ mod inner {
                         RawStatement::Call(Call {
                             func:
                                 FnOperand::Regular(FnPtr {
-                                    func: FunIdOrTraitMethodRef::Trait(tref, ..),
+                                    func: FunIdOrTraitMethodRef::Trait(tref, item_name, ..),
                                     ..
                                 }),
                             ..
@@ -307,6 +320,9 @@ mod inner {
                             // Here, we are making a two step approximation:
                             // 1. Unresolvable generic code is potentially user-provided
                             // 2. User-provided code potentially panics
+                            log::info!(
+                                "Found unresolvable call to trait method: {item_name} (block: {id})"
+                            );
                             taint_analyzer.mark_sink(id.into());
                             self.status.unresolvable_generic_functions.push(st.span);
                         }

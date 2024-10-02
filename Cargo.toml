@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.89"
 bitflags = "2.6.0"
-charon = { git = "https://github.com/AeneasVerif/charon", branch = "main", default-features = false }
+charon = { git = "https://github.com/AeneasVerif/charon", branch = "son/source", default-features = false }
 chrono = "0.4.38"
 clap = { version = "4.5", features = ["derive", "env"] }
 fern = "0.6.2"
