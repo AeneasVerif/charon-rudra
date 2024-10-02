@@ -285,6 +285,15 @@ mod inner {
                                 self.status.unresolvable_generic_functions.push(st.span);
                             } else {
                                 // Check for unresolvable generic function calls
+                                // Check if one of the trait obligations resolves to a clause
+                                if generics_have_unresolved(generics) {
+                                    log::trace!(
+                                        "Found call with unresolvable generic parts: {name_str} (block: {id})"
+                                    );
+                                    taint_analyzer.mark_sink(id.into());
+                                    self.status.unresolvable_generic_functions.push(st.span);
+                                }
+
                                 /*match Instance::resolve(
                                     self.rcx.tcx(),
                                     self.param_env,
@@ -312,19 +321,27 @@ mod inner {
                             func:
                                 FnOperand::Regular(FnPtr {
                                     func: FunIdOrTraitMethodRef::Trait(tref, item_name, ..),
-                                    ..
+                                    generics,
                                 }),
                             ..
-                        }) if !matches!(tref.kind, TraitRefKind::TraitImpl(..)) => {
-                            // Call contains unresolvable generic parts
-                            // Here, we are making a two step approximation:
-                            // 1. Unresolvable generic code is potentially user-provided
-                            // 2. User-provided code potentially panics
-                            log::trace!(
+                        }) => {
+                            let is_impl_with_unresolved = match &tref.kind {
+                                TraitRefKind::TraitImpl(_, impl_generics) => {
+                                    generics_have_unresolved(impl_generics)
+                                }
+                                _ => true,
+                            };
+                            if is_impl_with_unresolved || generics_have_unresolved(generics) {
+                                // Call contains unresolvable generic parts
+                                // Here, we are making a two step approximation:
+                                // 1. Unresolvable generic code is potentially user-provided
+                                // 2. User-provided code potentially panics
+                                log::trace!(
                                 "Found unresolvable call to trait method: {item_name} (block: {id})"
                             );
-                            taint_analyzer.mark_sink(id.into());
-                            self.status.unresolvable_generic_functions.push(st.span);
+                                taint_analyzer.mark_sink(id.into());
+                                self.status.unresolvable_generic_functions.push(st.span);
+                            }
                         }
                         _ => (),
                     }
@@ -455,4 +472,12 @@ impl GraphTaint for BehaviorFlag {
     fn join(&mut self, taint: &Self) {
         *self |= *taint;
     }
+}
+
+/// Return true if some trait refs are not resolved (they link to clauses)
+fn generics_have_unresolved(generics: &GenericArgs) -> bool {
+    generics
+        .trait_refs
+        .iter()
+        .any(|tr| !matches!(&tr.kind, TraitRefKind::TraitImpl(..)))
 }
