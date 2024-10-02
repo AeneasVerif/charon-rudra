@@ -212,45 +212,27 @@ impl<'tcx> ToString for ColorSpan<'tcx> {
 
 // TODO: move to Charon
 pub fn span_to_snippet(crate_data: &TranslatedCrate, span: &Span) -> Result<Vec<String>, ()> {
-    use std::fs::File;
-    use std::io::prelude::*;
-    use std::io::BufReader;
-    use take_mut::take;
-    use FileName::*;
-    let file = &crate_data.id_to_file[span.span.file_id];
-    match file {
-        Local(path) => {
-            let file = if let Ok(file) = File::open(path) {
-                file
-            } else {
-                return Err(());
-            };
-            // This is not meant to be efficient
-            let content: Result<Vec<String>, _> =
-                BufReader::new(file).lines().into_iter().collect();
-            let content = if let Ok(content) = content {
-                content
-            } else {
-                return Err(());
-            };
-            let mut lines: Vec<_> =
-                Vec::from(&content[span.span.beg.line - 1..span.span.end.line - 1]);
-            if lines.len() <= 0 {
-                return Err(());
-            }
-            // Shift the columns
-            let lines_len = lines.len();
-            take(&mut lines[0], |l| {
-                l.chars().skip(span.span.beg.col).collect()
-            });
-            take(&mut lines[lines_len - 1], |l| {
-                l.chars().take(span.span.end.col).collect()
-            });
-
-            Ok(lines)
-        }
-        _ => Err(()),
+    let content = crate_data
+        .file_id_to_content
+        .get(&span.span.file_id)
+        .ok_or(())?;
+    let content: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+    // This is not meant to be efficient
+    let mut lines: Vec<_> = Vec::from(&content[span.span.beg.line - 1..span.span.end.line - 1]);
+    if lines.len() <= 0 {
+        return Err(());
     }
+    // Shift the columns
+    let lines_len = lines.len();
+    use take_mut::take;
+    take(&mut lines[0], |l| {
+        l.chars().skip(span.span.beg.col).collect()
+    });
+    // TODO: it seems the end column is imprecise
+    /*take(&mut lines[lines_len - 1], |l| {
+        l.chars().take(span.span.end.col).collect()
+    });*/
+    Ok(lines)
 }
 
 pub fn print_span(crate_data: &TranslatedCrate, span: &Span) {
