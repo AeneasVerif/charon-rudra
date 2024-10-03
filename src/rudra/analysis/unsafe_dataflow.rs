@@ -359,7 +359,7 @@ mod inner {
             paths: &PathSet,
         ) -> bool {
             if let Some(decl) = self.rcx.crate_data.fun_decls.get(callee_did) {
-                if paths.contains(&self.rcx, &decl.item_meta.name).is_some() {
+                if paths.contains(self.rcx, &decl.item_meta.name).is_some() {
                     // Just check the first type argument
                     return self.rcx.is_copyable(generics.types.get(0.into()).unwrap());
                 }
@@ -389,7 +389,7 @@ mod inner {
         }
     }
 
-    fn trace_calls_in_body<'tcx>(rcx: RudraCtxt<'tcx>, body: &Body) {
+    fn trace_calls_in_body(rcx: RudraCtxt, body: &Body) {
         warn!("Paths discovery function has been detected");
         for block in &body.as_unstructured().unwrap().body {
             for st in &block.statements {
@@ -411,7 +411,7 @@ mod inner {
     }
 
     // Check if the argument of `Vec::set_len()` is 0_usize.
-    fn vec_set_len_to_0(args: &Vec<Operand>) -> bool {
+    fn vec_set_len_to_0(args: &[Operand]) -> bool {
         for arg in args.iter() {
             if let Operand::Const(x) = arg {
                 if let RawConstantExpr::Literal(Literal::Scalar(ScalarValue::Usize(x))) = &x.value {
