@@ -28,7 +28,7 @@ tracing = { version = "0.1", features = [ "max_level_trace" ] }
 prefer-dynamic = "0" # for dynamic linking
 
 [[bin]]
-name = "charon-rudra"
+name = "cargo-charon-rudra"
 path = "src/main.rs"
 
 [dev-dependencies]
