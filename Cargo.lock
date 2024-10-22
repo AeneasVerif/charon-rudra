@@ -222,8 +222,8 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "charon"
-version = "0.1.44"
-source = "git+https://github.com/AeneasVerif/charon?branch=main#93db0e1cdbc4f06befca95214fa7197909542fdd"
+version = "0.1.45"
+source = "git+https://github.com/AeneasVerif/charon?branch=main#48d01c59aa686f1eb51f493ef9f05d5f18412285"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -709,7 +709,7 @@ checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
 [[package]]
 name = "macros"
 version = "0.1.0"
-source = "git+https://github.com/AeneasVerif/charon?branch=main#93db0e1cdbc4f06befca95214fa7197909542fdd"
+source = "git+https://github.com/AeneasVerif/charon?branch=main#48d01c59aa686f1eb51f493ef9f05d5f18412285"
 dependencies = [
  "proc-macro2",
  "quote",

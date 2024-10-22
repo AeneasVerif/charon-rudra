@@ -216,7 +216,7 @@ impl<'tcx> RudraCtxtOwner<'tcx> {
 
 use crate::rudra::report::ReportLevel;
 use charon_lib::name_matcher::NamePattern;
-use charon_lib::types::{RefKind, TraitDeclId, TraitImplId, Ty, TypeDeclId, TypeId};
+use charon_lib::types::{RefKind, TraitDeclId, TraitImplId, Ty, TyKind, TypeDeclId, TypeId};
 use charon_lib::ullbc_ast::TranslatedCrate;
 use std::collections::{HashMap, HashSet};
 
@@ -269,8 +269,8 @@ impl CtxOwner {
                 .iter()
                 .filter_map(|t| {
                     if t.impl_trait.trait_id == copy_trait_id {
-                        match t.impl_trait.generics.types.get(0.into()).unwrap() {
-                            Ty::Adt(TypeId::Adt(id), _) => Some(*id),
+                        match t.impl_trait.generics.types.get(0.into()).unwrap().kind() {
+                            TyKind::Adt(TypeId::Adt(id), _) => Some(*id),
                             _ => None,
                         }
                     } else {
@@ -292,8 +292,8 @@ impl CtxOwner {
     /// Return true if a type is copyable.
     /// This is an approximation.
     pub fn is_copyable(&self, ty: &Ty) -> bool {
-        use Ty::*;
-        match ty {
+        use TyKind::*;
+        match ty.kind() {
             Adt(TypeId::Tuple, args) => args.types.iter().all(|a| self.is_copyable(a)),
             Adt(TypeId::Adt(id), _) => self.copyable.contains(id),
             Adt(TypeId::Builtin(_), _) => false,

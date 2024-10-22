@@ -1,8 +1,8 @@
-#![feature(backtrace)]
 #![feature(box_patterns)]
 #![feature(rustc_private)]
 #![feature(try_blocks)]
 #![feature(never_type)]
+#![allow(unused)]
 
 mod logger;
 mod options;
